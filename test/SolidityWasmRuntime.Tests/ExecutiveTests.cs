@@ -22,4 +22,26 @@ public class ExecutiveTests
             result.ShouldBe("01");
         }
     }
+
+    [Fact]
+    public void FooTest()
+    {
+        const string solFilePath = "simple.sol";
+        const string functionName = "foo()";
+        var executive = new Executive(solFilePath);
+        var result = executive.Execute(Keccak256.ComputeEthereumFunctionSelector(functionName, false));
+        result.ShouldNotBeNull();
+    }
+
+    [Fact]
+    public void BarTest()
+    {
+        FooTest();
+        
+        const string solFilePath = "simple.sol";
+        const string functionName = "bar()";
+        var executive = new Executive(solFilePath);
+        var result = executive.Execute(Keccak256.ComputeEthereumFunctionSelector(functionName, false));
+        result.ShouldNotBeNull();
+    }
 }

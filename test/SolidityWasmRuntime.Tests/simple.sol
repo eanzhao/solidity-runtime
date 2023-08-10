@@ -2,8 +2,7 @@ contract simple {
     uint32 number;
 
     function foo() public returns (uint32) {
-        number = 2;
-        return number;
+        return 2;
     }
     
     function bar() public view returns (uint32) {
