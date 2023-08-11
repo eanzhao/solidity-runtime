@@ -1,3 +1,4 @@
+using Nethereum.Web3.Accounts;
 using Wasmtime;
 
 namespace SolidityWasmRuntime;
@@ -73,11 +74,82 @@ public class Runtime : IDisposable
         _linker.DefineFunction("seal1", "call", (Func<int, int, long, int, int, int, int, int, int, int>)CallV1);
         _linker.DefineFunction("seal2", "call", (Func<int, int, long, long, int, int, int, int, int, int, int>)CallV2);
 
+        _linker.DefineFunction("seal0", "delegate_call", (Func<int, int, int, int, int, int, int>)DelegateCallV0);
+
+        //_linker.DefineFunction("seal0", "instantiate",
+        //    (Func<int, int, long, int, int, int, int, int, int, int, int, int, int, int>)InstantiateV0);
+        _linker.DefineFunction("seal1", "instantiate",
+            (Func<int, long, int, int, int, int, int, int, int, int, int, int>)InstantiateV1);
+        //_linker.DefineFunction("seal2", "instantiate", (Func<int, long, long, int, int, int, int, int, int, int, int, int, int, int>)InstantiateV2);
+
+        _linker.DefineFunction("seal0", "terminate", (Action<int, int>)TerminateV0);
+        _linker.DefineFunction("seal1", "terminate", (Action<int>)TerminateV1);
+
         _linker.DefineFunction("seal0", "input", (Action<int, int>)InputV0);
+
         _linker.DefineFunction("seal0", "seal_return", (Action<int, int, int>)SealReturnV0);
-        _linker.DefineFunction("seal0", "debug_message", (Func<int, int, int>)DebugMessage);
+
+        _linker.DefineFunction("seal0", "caller", (Action<int, int>)Caller);
+
+        _linker.DefineFunction("seal0", "is_contract", (Func<int, int>)IsContract);
+
+        _linker.DefineFunction("seal0", "code_hash", (Func<int, int, int, int>)CodeHash);
+
+        _linker.DefineFunction("seal0", "own_code_hash", (Func<int, int, int>)OwnCodeHash);
+
+        _linker.DefineFunction("seal0", "caller_is_origin", CallerIsOrigin);
+
+        _linker.DefineFunction("seal0", "caller_is_root", CallerIsRoot);
+
+        _linker.DefineFunction("seal0", "address", (Action<int, int>)Address);
+
+        _linker.DefineFunction("seal0", "weight_to_fee", (Action<long, int, int>)WeightToFeeV0);
+        _linker.DefineFunction("seal1", "weight_to_fee", (Action<long, long, int, int>)WeightToFeeV1);
+
+        _linker.DefineFunction("seal0", "gas_left", (Action<int, int>)GasLeftV0);
+        _linker.DefineFunction("seal1", "gas_left", (Action<int, int>)GasLeftV1);
+
+        _linker.DefineFunction("seal0", "balance", (Action<int, int>)Balance);
+
         _linker.DefineFunction("seal0", "value_transferred", (Action<int, int>)ValueTransferred);
 
+        _linker.DefineFunction("seal0", "random", (Func<int, int, int, int, int>)RandomV0);
+        _linker.DefineFunction("seal1", "random", (Func<int, int, int, int, int>)RandomV1);
+
+        _linker.DefineFunction("seal0", "now", (Action<int, int>)Now);
+
+        _linker.DefineFunction("seal0", "minimum_balance", (Action<int, int>)MinimumBalance);
+
+        _linker.DefineFunction("seal0", "deposit_event", (Action<int, int, int, int>)DepositEvent);
+
+        _linker.DefineFunction("seal0", "block_number", (Action<int, int>)BlockNumber);
+
+        _linker.DefineFunction("seal0", "hash_sha2_256", (Action<int, int, int>)HashSha2_256);
+        _linker.DefineFunction("seal0", "hash_keccak_256", (Action<int, int, int>)HashKeccak256);
+        _linker.DefineFunction("seal0", "hash_blake2_256", (Action<int, int, int>)HashBlake2_256);
+        _linker.DefineFunction("seal0", "hash_blake2_128", (Action<int, int, int>)HashBlake2_128);
+
+        _linker.DefineFunction("seal0", "call_chain_extension", (Action<int, int, int, int, int>)CallChainExtension);
+
+        _linker.DefineFunction("seal0", "debug_message", (Func<int, int, int>)DebugMessage);
+
+        _linker.DefineFunction("seal0", "call_runtime", (Func<int, int, int>)CallRuntime);
+
+        _linker.DefineFunction("seal0", "ecdsa_recover", (Func<int, int, int, int>)EcdsaRecover);
+
+        _linker.DefineFunction("seal0", "sr25519_verify", (Func<int, int, int, int, int>)Sr25519Verify);
+
+        _linker.DefineFunction("seal0", "set_code_hash", (Func<int, int>)SetCodeHash);
+
+        _linker.DefineFunction("seal0", "ecdsa_to_eth_address", (Func<int, int, int>)EcdsaToEthAddress);
+
+        _linker.DefineFunction("seal0", "reentrance_count", ReentranceCount);
+        _linker.DefineFunction("seal0", "account_reentrance_count", (Func<int, int>)AccountReentranceCount);
+
+        _linker.DefineFunction("seal0", "instantiation_nonce", InstantiationNonce);
+
+        _linker.DefineFunction("seal0", "add_delegate_dependency", (Action<int>)AddDelegateDependency);
+        _linker.DefineFunction("seal0", "remove_delegate_dependency", (Action<int>)RemoveDelegateDependency);
     }
 
     #region API functions
@@ -632,7 +704,7 @@ public class Runtime : IDisposable
     /// 
     /// </summary>
     /// <returns>Returned value is a `u32`-encoded boolean: (`0 = false`, `1 = true`).</returns>
-    private int CallIsOrigin()
+    private int CallerIsOrigin()
     {
         throw new NotImplementedException();
     }
@@ -648,7 +720,7 @@ public class Runtime : IDisposable
     /// 
     /// </summary>
     /// <returns>Returned value is a `u32`-encoded boolean: (`0 = false`, `1 = true`).</returns>
-    private int CallIsRoot()
+    private int CallerIsRoot()
     {
         throw new NotImplementedException();
     }
@@ -845,6 +917,159 @@ public class Runtime : IDisposable
     }
 
     /// <summary>
+    /// Stores the minimum balance (a.k.a. existential deposit) into the supplied buffer.
+    ///
+    /// The data is encoded as `T::Balance`.
+    /// </summary>
+    /// <param name="outPtr"></param>
+    /// <param name="outLenPtr"></param>
+    private void MinimumBalance(int outPtr, int outLenPtr)
+    {
+        throw new NotImplementedException();
+    }
+
+    /// <summary>
+    /// Deposit a contract event with the data buffer and optional list of topics. There is a limit
+    /// on the maximum number of topics specified by `event_topics`.
+    /// </summary>
+    /// <param name="topicsPtr">
+    /// a pointer to the buffer of topics encoded as `Vec T::Hash`. The value of
+    /// this is ignored if `topics_len` is set to `0`. The topics list can't contain duplicates.
+    /// </param>
+    /// <param name="topicsLen">the length of the topics buffer. Pass 0 if you want to pass an empty vector.</param>
+    /// <param name="dataPtr">a pointer to a raw data buffer which will saved along the event.</param>
+    /// <param name="dataLen">the length of the data buffer.</param>
+    private void DepositEvent(int topicsPtr, int topicsLen, int dataPtr, int dataLen)
+    {
+        throw new NotImplementedException();
+    }
+
+    /// <summary>
+    /// Stores the current block number of the current contract into the supplied buffer.
+    ///
+    /// The value is stored to linear memory at the address pointed to by `out_ptr`.
+    /// `out_len_ptr` must point to a u32 value that describes the available space at
+    /// `out_ptr`. This call overwrites it with the size of the value. If the available
+    /// space at `out_ptr` is less than the size of the value a trap is triggered.
+    /// </summary>
+    /// <param name="outPtr"></param>
+    /// <param name="outLenPtr"></param>
+    private void BlockNumber(int outPtr, int outLenPtr)
+    {
+        throw new NotImplementedException();
+    }
+
+    /// <summary>
+    /// Computes the SHA2 256-bit hash on the given input buffer.
+    ///
+    /// Returns the result directly into the given output buffer.
+    ///
+    /// # Note
+    ///
+    /// - The `input` and `output` buffer may overlap.
+    /// - The output buffer is expected to hold at least 32 bytes (256 bits).
+    /// - It is the callers responsibility to provide an output buffer that is large enough to hold
+    ///   the expected amount of bytes returned by the chosen hash function.
+    /// </summary>
+    /// <param name="inputPtr">the pointer into the linear memory where the input data is placed.</param>
+    /// <param name="inputLen">the length of the input data in bytes.</param>
+    /// <param name="outputPtr">
+    /// the pointer into the linear memory where the output data is placed. The
+    /// function will write the result directly into this buffer.
+    /// </param>
+    private void HashSha2_256(int inputPtr, int inputLen, int outputPtr)
+    {
+        throw new NotImplementedException();
+    }
+
+    /// <summary>
+    /// Computes the KECCAK 256-bit hash on the given input buffer.
+    ///
+    /// Returns the result directly into the given output buffer.
+    ///
+    /// # Note
+    ///
+    /// - The `input` and `output` buffer may overlap.
+    /// - The output buffer is expected to hold at least 32 bytes (256 bits).
+    /// - It is the callers responsibility to provide an output buffer that is large enough to hold
+    ///   the expected amount of bytes returned by the chosen hash function.
+    /// </summary>
+    /// <param name="inputPtr">the pointer into the linear memory where the input data is placed.</param>
+    /// <param name="inputLen">the length of the input data in bytes.</param>
+    /// <param name="outputPtr">
+    /// the pointer into the linear memory where the output data is placed. The
+    /// function will write the result directly into this buffer.
+    /// </param>
+    private void HashKeccak256(int inputPtr, int inputLen, int outputPtr)
+    {
+        throw new NotImplementedException();
+    }
+
+    /// <summary>
+    /// Computes the BLAKE2 256-bit hash on the given input buffer.
+    ///
+    /// Returns the result directly into the given output buffer.
+    ///
+    /// # Note
+    ///
+    /// - The `input` and `output` buffer may overlap.
+    /// - The output buffer is expected to hold at least 32 bytes (256 bits).
+    /// - It is the callers responsibility to provide an output buffer that is large enough to hold
+    ///   the expected amount of bytes returned by the chosen hash function.
+    /// </summary>
+    /// <param name="inputPtr">the pointer into the linear memory where the input data is placed.</param>
+    /// <param name="inputLen">the length of the input data in bytes.</param>
+    /// <param name="outputPtr">
+    /// the pointer into the linear memory where the output data is placed. The
+    /// function will write the result directly into this buffer.
+    /// </param>
+    private void HashBlake2_256(int inputPtr, int inputLen, int outputPtr)
+    {
+        throw new NotImplementedException();
+    }
+
+    /// <summary>
+    /// Computes the BLAKE2 128-bit hash on the given input buffer.
+    ///
+    /// Returns the result directly into the given output buffer.
+    ///
+    /// # Note
+    ///
+    /// - The `input` and `output` buffer may overlap.
+    /// - The output buffer is expected to hold at least 32 bytes (256 bits).
+    /// - It is the callers responsibility to provide an output buffer that is large enough to hold
+    ///   the expected amount of bytes returned by the chosen hash function.
+    /// </summary>
+    /// <param name="inputPtr">the pointer into the linear memory where the input data is placed.</param>
+    /// <param name="inputLen">the length of the input data in bytes.</param>
+    /// <param name="outputPtr">
+    /// the pointer into the linear memory where the output data is placed. The
+    /// function will write the result directly into this buffer.
+    /// </param>
+    private void HashBlake2_128(int inputPtr, int inputLen, int outputPtr)
+    {
+        throw new NotImplementedException();
+    }
+
+    /// <summary>
+    /// Call into the chain extension provided by the chain if any.
+    ///
+    /// Handling of the input values is up to the specific chain extension and so is the
+    /// return value. The extension can decide to use the inputs as primitive inputs or as
+    /// in/out arguments by interpreting them as pointers. Any caller of this function
+    /// must therefore coordinate with the chain that it targets.
+    ///
+    /// # Note
+    ///
+    /// If no chain extension exists the contract will trap with the `NoChainExtension`
+    /// module error.
+    /// </summary>
+    private void CallChainExtension(int id, int inputPtr, int inputLen, int outputPtr, int outputLenPtr)
+    {
+        throw new NotImplementedException();
+    }
+
+    /// <summary>
     /// Emit a custom debug message.
     ///
     /// No newlines are added to the supplied message.
@@ -871,6 +1096,184 @@ public class Runtime : IDisposable
         Console.WriteLine($"ValueTransferred: {outPtr}, {outLenPtr}");
         Console.WriteLine($"DebugMessage: {outPtr}, {outLenPtr}");
         return 0;
+    }
+
+    /// <summary>
+    /// Call some dispatchable of the runtime.
+    ///
+    /// This function decodes the passed in data as the overarching `Call` type of the
+    /// runtime and dispatches it. The weight as specified in the runtime is charged
+    /// from the gas meter. Any weight refunds made by the dispatchable are considered.
+    ///
+    /// The filter specified by `Config::CallFilter` is attached to the origin of
+    /// the dispatched call.
+    ///
+    /// # Comparison with `ChainExtension`
+    ///
+    /// Just as a chain extension this API allows the runtime to extend the functionality
+    /// of contracts. While making use of this function is generally easier it cannot be
+    /// used in all cases. Consider writing a chain extension if you need to do perform
+    /// one of the following tasks:
+    ///
+    /// - Return data.
+    /// - Provide functionality **exclusively** to contracts.
+    /// - Provide custom weights.
+    /// - Avoid the need to keep the `Call` data structure stable.
+    /// </summary>
+    /// <param name="callPtr">the pointer into the linear memory where the input data is placed.</param>
+    /// <param name="callLen">the length of the input data in bytes.</param>
+    /// <returns>
+    /// Returns `ReturnCode::Success` when the dispatchable was successfully executed and
+    /// returned `Ok`. When the dispatchable was exeuted but returned an error
+    /// `ReturnCode::CallRuntimeFailed` is returned. The full error is not
+    /// provided because it is not guaranteed to be stable.
+    /// </returns>
+    private int CallRuntime(int callPtr, int callLen)
+    {
+        throw new NotImplementedException();
+    }
+
+    /// <summary>
+    /// Recovers the ECDSA public key from the given message hash and signature.
+    ///
+    /// Writes the public key into the given output buffer.
+    /// Assumes the secp256k1 curve.
+    /// </summary>
+    /// <param name="signaturePtr">
+    /// the pointer into the linear memory where the signature is placed. Should
+    /// be decodable as a 65 bytes. Traps otherwise.
+    /// </param>
+    /// <param name="messageHashPtr">
+    /// the pointer into the linear memory where the message hash is placed.
+    /// Should be decodable as a 32 bytes. Traps otherwise.
+    /// </param>
+    /// <param name="outputPtr">
+    /// the pointer into the linear memory where the output data is placed. The
+    /// buffer should be 33 bytes. The function will write the result directly into this buffer.
+    /// </param>
+    /// <returns>ReturnCode</returns>
+    private int EcdsaRecover(int signaturePtr, int messageHashPtr, int outputPtr)
+    {
+        throw new NotImplementedException();
+    }
+
+    /// <summary>
+    /// Verify a sr25519 signature
+    /// </summary>
+    /// <param name="signaturePtr">
+    /// the pointer into the linear memory where the signature is placed. Should
+    /// be a value of 64 bytes.
+    /// </param>
+    /// <param name="pubKeyPtr">
+    /// the pointer into the linear memory where the public key is placed. Should
+    /// be a value of 32 bytes.
+    /// </param>
+    /// <param name="messageLen">the length of the message payload.</param>
+    /// <param name="messagePtr">the pointer into the linear memory where the message is placed.</param>
+    /// <returns>ReturnCode</returns>
+    private int Sr25519Verify(int signaturePtr, int pubKeyPtr, int messageLen, int messagePtr)
+    {
+        throw new NotImplementedException();
+    }
+
+    /// <summary>
+    /// Replace the contract code at the specified address with new code.
+    ///
+    /// # Note
+    ///
+    /// There are a couple of important considerations which must be taken into account when
+    /// using this API:
+    ///
+    /// 1. The storage at the code address will remain untouched. This means that contract
+    /// developers must ensure that the storage layout of the new code is compatible with that of
+    /// the old code.
+    ///
+    /// 2. Contracts using this API can't be assumed as having deterministic addresses. Said another
+    /// way, when using this API you lose the guarantee that an address always identifies a specific
+    /// code hash.
+    ///
+    /// 3. If a contract calls into itself after changing its code the new call would use
+    /// the new code. However, if the original caller panics after returning from the sub call it
+    /// would revert the changes made by [`set_code_hash()`][`Self::set_code_hash`] and the next
+    /// caller would use the old code.
+    /// </summary>
+    /// <param name="codeHashPtr">A pointer to the buffer that contains the new code hash.</param>
+    /// <returns>ReturnCode</returns>
+    private int SetCodeHash(int codeHashPtr)
+    {
+        throw new NotImplementedException();
+    }
+
+    /// <summary>
+    /// Calculates Ethereum address from the ECDSA compressed public key and stores
+    /// it into the supplied buffer.
+    /// <br/>
+    /// The value is stored to linear memory at the address pointed to by `out_ptr`.
+    /// If the available space at `out_ptr` is less than the size of the value a trap is triggered.
+    /// </summary>
+    /// <param name="keyPtr">
+    /// a pointer to the ECDSA compressed public key. Should be decodable as a 33 bytes
+    /// value. Traps otherwise.
+    /// </param>
+    /// <param name="outPtr">
+    /// the pointer into the linear memory where the output data is placed. The
+    /// function will write the result directly into this buffer.
+    /// </param>
+    /// <returns></returns>
+    private int EcdsaToEthAddress(int keyPtr, int outPtr)
+    {
+        throw new NotImplementedException();
+    }
+
+    /// <summary>
+    /// Returns the number of times the currently executing contract exists on the call stack in
+    /// addition to the calling instance.
+    /// </summary>
+    /// <returns>Returns `0` when there is no reentrancy.</returns>
+    private int ReentranceCount()
+    {
+        throw new NotImplementedException();
+    }
+
+    /// <summary>
+    /// Returns the number of times specified contract exists on the call stack. Delegated calls are
+    /// not counted as separate calls.
+    /// </summary>
+    /// <param name="accountPtr">a pointer to the contract address.</param>
+    /// <returns>Returns `0` when the contract does not exist on the call stack.</returns>
+    private int AccountReentranceCount(int accountPtr)
+    {
+        throw new NotImplementedException();
+    }
+
+    /// <summary>
+    /// Returns a nonce that is unique per contract instantiation.
+    ///
+    /// The nonce is incremented for each successful contract instantiation. This is a
+    /// sensible default salt for contract instantiations.
+    /// </summary>
+    /// <returns></returns>
+    private int InstantiationNonce()
+    {
+        throw new NotImplementedException();
+    }
+
+    /// <summary>
+    /// Adds a new delegate dependency to the contract.
+    /// </summary>
+    /// <param name="codeHashPtr">A pointer to the code hash of the dependency.</param>
+    private void AddDelegateDependency(int codeHashPtr)
+    {
+        throw new NotImplementedException();
+    }
+
+    /// <summary>
+    /// Removes the delegate dependency from the contract.
+    /// </summary>
+    /// <param name="codeHashPtr">A pointer to the code hash of the dependency.</param>
+    private void RemoveDelegateDependency(int codeHashPtr)
+    {
+        throw new NotImplementedException();
     }
 
     #endregion
