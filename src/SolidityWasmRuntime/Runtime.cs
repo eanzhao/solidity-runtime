@@ -1,3 +1,4 @@
+using Nethereum.Hex.HexConvertors.Extensions;
 using Nethereum.Web3.Accounts;
 using Wasmtime;
 
@@ -11,26 +12,27 @@ public class Runtime : IDisposable
     private readonly Memory _memory;
     private readonly Module _module;
     public byte[] ReturnBuffer = Array.Empty<byte>();
+    public List<string> DebugMessages = new();
     public readonly Dictionary<int, int> Database = new();
     public byte[] Input { get; set; } = Array.Empty<byte>();
 
-    public Runtime(byte[] wasmCode)
+    public Runtime(byte[] wasmCode, bool withFuelConsumption = true, long memoryMin = 16, long memoryMax = 16)
     {
-        _engine = new Engine(new Config().WithFuelConsumption(true));
+        _engine = new Engine(new Config().WithFuelConsumption(withFuelConsumption));
         _store = new Store(_engine);
         _linker = new Linker(_engine);
-        _memory = new Memory(_store, 16, 16);
+        _memory = new Memory(_store, memoryMin, memoryMax);
         _module = Module.FromBytes(_engine, "contract", wasmCode);
         DefineImportFunctions();
     }
 
-    public Runtime(string wasmFilePath)
+    public Runtime(string watFilePath, bool withFuelConsumption = true, long memoryMin = 16, long memoryMax = 16)
     {
-        _engine = new Engine(new Config().WithFuelConsumption(true));
+        _engine = new Engine(new Config().WithFuelConsumption(withFuelConsumption));
         _store = new Store(_engine);
         _linker = new Linker(_engine);
-        _memory = new Memory(_store, 16, 16);
-        _module = Module.FromTextFile(_engine, wasmFilePath);
+        _memory = new Memory(_store, memoryMin, memoryMax);
+        _module = Module.FromTextFile(_engine, watFilePath);
         DefineImportFunctions();
     }
 
@@ -85,7 +87,7 @@ public class Runtime : IDisposable
         _linker.DefineFunction("seal0", "terminate", (Action<int, int>)TerminateV0);
         _linker.DefineFunction("seal1", "terminate", (Action<int>)TerminateV1);
 
-        _linker.DefineFunction("seal0", "input", (Action<int, int>)InputV0);
+        _linker.DefineFunction("seal0", "seal_input", (Action<int, int>)SealInputV0);
 
         _linker.DefineFunction("seal0", "seal_return", (Action<int, int, int>)SealReturnV0);
 
@@ -131,7 +133,7 @@ public class Runtime : IDisposable
 
         _linker.DefineFunction("seal0", "call_chain_extension", (Action<int, int, int, int, int>)CallChainExtension);
 
-        _linker.DefineFunction("seal0", "debug_message", (Func<int, int, int>)DebugMessage);
+        _linker.DefineFunction("seal0", "seal_debug_message", (Func<int, int, int>)SealDebugMessage);
 
         _linker.DefineFunction("seal0", "call_runtime", (Func<int, int, int>)CallRuntime);
 
@@ -581,7 +583,7 @@ public class Runtime : IDisposable
     /// </summary>
     /// <param name="outPtr"></param>
     /// <param name="outLenPtr"></param>
-    private void InputV0(int outPtr, int outLenPtr)
+    private void SealInputV0(int outPtr, int outLenPtr)
     {
         WriteBytes(outPtr, Input);
         WriteUInt32(outLenPtr, Convert.ToUInt32(Input.Length));
@@ -1088,13 +1090,12 @@ public class Runtime : IDisposable
     /// through compile time flags (cargo features) for on-chain deployment. Additionally, the
     /// return value of this function can be cached in order to prevent further calls at runtime.
     /// </summary>
-    /// <param name="outPtr"></param>
-    /// <param name="outLenPtr"></param>
+    /// <param name="strPtr"></param>
+    /// <param name="strLen"></param>
     /// <returns></returns>
-    private int DebugMessage(int outPtr, int outLenPtr)
+    private int SealDebugMessage(int strPtr, int strLen)
     {
-        Console.WriteLine($"ValueTransferred: {outPtr}, {outLenPtr}");
-        Console.WriteLine($"DebugMessage: {outPtr}, {outLenPtr}");
+        DebugMessages.Add(_memory.ReadString(strPtr, strLen));
         return 0;
     }
 
