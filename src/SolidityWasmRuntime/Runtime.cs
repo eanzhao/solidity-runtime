@@ -1,23 +1,25 @@
+using System.Text;
+using NBitcoin.DataEncoders;
 using Nethereum.Hex.HexConvertors.Extensions;
-using Nethereum.Web3.Accounts;
 using Wasmtime;
 
 namespace SolidityWasmRuntime;
 
 public class Runtime : IDisposable
 {
+    private readonly IContext _context;
     private readonly Store _store;
     private readonly Engine _engine;
     private readonly Linker _linker;
     private readonly Memory _memory;
     private readonly Module _module;
     public byte[] ReturnBuffer = Array.Empty<byte>();
-    public List<string> DebugMessages = new();
-    public readonly Dictionary<int, int> Database = new();
+    public readonly List<string> DebugMessages = new();
     public byte[] Input { get; set; } = Array.Empty<byte>();
 
-    public Runtime(byte[] wasmCode, bool withFuelConsumption = true, long memoryMin = 16, long memoryMax = 16)
+    public Runtime(IContext context, byte[] wasmCode, bool withFuelConsumption = true, long memoryMin = 16, long memoryMax = 16)
     {
+        _context = context;
         _engine = new Engine(new Config().WithFuelConsumption(withFuelConsumption));
         _store = new Store(_engine);
         _linker = new Linker(_engine);
@@ -26,8 +28,9 @@ public class Runtime : IDisposable
         DefineImportFunctions();
     }
 
-    public Runtime(string watFilePath, bool withFuelConsumption = true, long memoryMin = 16, long memoryMax = 16)
+    public Runtime(IContext context, string watFilePath, bool withFuelConsumption = true, long memoryMin = 16, long memoryMax = 16)
     {
+        _context = context;
         _engine = new Engine(new Config().WithFuelConsumption(withFuelConsumption));
         _store = new Store(_engine);
         _linker = new Linker(_engine);
@@ -78,11 +81,32 @@ public class Runtime : IDisposable
 
         _linker.DefineFunction("seal0", "delegate_call", (Func<int, int, int, int, int, int, int>)DelegateCallV0);
 
-        //_linker.DefineFunction("seal0", "instantiate",
-        //    (Func<int, int, long, int, int, int, int, int, int, int, int, int, int, int>)InstantiateV0);
+        _linker.DefineFunction("seal0", "instantiate", (caller, args, results) =>
+            {
+                InstantiateV0(args[0].AsInt32(), args[1].AsInt32(), args[2].AsInt64(), args[3].AsInt32(),
+                    args[4].AsInt32(), args[5].AsInt32(), args[6].AsInt32(), args[7].AsInt32(), args[8].AsInt32(),
+                    args[9].AsInt32(), args[10].AsInt32(), args[11].AsInt32(), args[12].AsInt32());
+            },
+            new[]
+            {
+                ValueKind.Int32, ValueKind.Int32, ValueKind.Int64, ValueKind.Int32, ValueKind.Int32, ValueKind.Int32,
+                ValueKind.Int32, ValueKind.Int32, ValueKind.Int32, ValueKind.Int32, ValueKind.Int32, ValueKind.Int32,
+                ValueKind.Int32
+            }, new List<ValueKind> { ValueKind.Int32 });
         _linker.DefineFunction("seal1", "instantiate",
             (Func<int, long, int, int, int, int, int, int, int, int, int, int>)InstantiateV1);
-        //_linker.DefineFunction("seal2", "instantiate", (Func<int, long, long, int, int, int, int, int, int, int, int, int, int, int>)InstantiateV2);
+        _linker.DefineFunction("seal2", "instantiate", (caller, args, results) =>
+            {
+                InstantiateV2(args[0].AsInt32(), args[1].AsInt64(), args[2].AsInt64(), args[3].AsInt32(),
+                    args[4].AsInt32(), args[5].AsInt32(), args[6].AsInt32(), args[7].AsInt32(), args[8].AsInt32(),
+                    args[9].AsInt32(), args[10].AsInt32(), args[11].AsInt32(), args[12].AsInt32());
+            },
+            new[]
+            {
+                ValueKind.Int32, ValueKind.Int64, ValueKind.Int64, ValueKind.Int32, ValueKind.Int32, ValueKind.Int32,
+                ValueKind.Int32, ValueKind.Int32, ValueKind.Int32, ValueKind.Int32, ValueKind.Int32, ValueKind.Int32,
+                ValueKind.Int32
+            }, new List<ValueKind> { ValueKind.Int32 });
 
         _linker.DefineFunction("seal0", "terminate", (Action<int, int>)TerminateV0);
         _linker.DefineFunction("seal1", "terminate", (Action<int>)TerminateV1);
@@ -209,14 +233,35 @@ public class Runtime : IDisposable
     private int SetStorageV2(int keyPtr, int keyLen, int valuePtr, int valueLen)
     {
         Console.WriteLine($"SetStorage: {keyPtr}, {keyLen}, {valuePtr}, {valueLen}");
-        if (Database.TryAdd(keyPtr, valuePtr))
-        {
-            return 0;
-        }
 
-        var preValue = Database[keyPtr];
-        Database[keyPtr] = valuePtr;
-        return preValue;
+        return 0;
+        /*
+        fn set_storage(
+			&mut self,
+			key: &Key<Self::T>,
+			value: Option<Vec<u8>>,
+			take_old: bool,
+		) -> Result<WriteOutcome, DispatchError> {
+			let key = key.to_vec();
+			let entry = self.storage.entry(key.clone());
+			let result = match (entry, take_old) {
+				(Entry::Vacant(_), _) => WriteOutcome::New,
+				(Entry::Occupied(entry), false) =>
+					WriteOutcome::Overwritten(entry.remove().len() as u32),
+				(Entry::Occupied(entry), true) => WriteOutcome::Taken(entry.remove()),
+			};
+			if let Some(value) = value {
+				self.storage.insert(key, value);
+			}
+			Ok(result)
+		}
+         */
+    }
+
+    public string SetStorage(byte[] key, byte[] value, bool takeOld)
+    {
+        _context.SetStorage(key, value, takeOld);
+        return string.Empty;
     }
 
     /// <summary>
@@ -279,7 +324,17 @@ public class Runtime : IDisposable
     /// <returns>ReturnCode</returns>
     private int GetStorageV1(int keyPtr, int keyLen, int outPtr, int outLenPtr)
     {
-        throw new NotImplementedException();
+        Console.WriteLine($"{keyPtr}, {keyLen}, {outPtr}, {outLenPtr}");
+        var key = ReadBytes(keyPtr, keyLen);
+        if (_context.TryGetStorage(key, out var outcome))
+        {
+            Console.WriteLine($"GetStorage Success: \nKey: {key} \nValue: {outcome}");
+            WriteBytes(outPtr, outcome);
+            WriteUInt32(outLenPtr, Convert.ToUInt32(outcome?.Length));
+            return (int)ReturnCode.Success;
+        }
+
+        return (int)ReturnCode.KeyNotFound;
     }
 
     /// <summary>
@@ -313,7 +368,6 @@ public class Runtime : IDisposable
     {
         throw new NotImplementedException();
     }
-
 
     /// <summary>
     /// Retrieve and remove the value under the given key from storage.
@@ -1300,8 +1354,15 @@ public class Runtime : IDisposable
         WriteBytes(address, numberInBytes);
     }
 
-    private void ReadSandboxMemoryIntoBuffer(int ptr, ref int[] buf)
+    private byte[] ReadBytes(int address, int length)
     {
+        var value = new byte[length];
+        for (var i = 0; i < length; i++)
+        {
+            value[i] = _memory.ReadByte(address + i);
+        }
+
+        return value;
     }
 
     #endregion

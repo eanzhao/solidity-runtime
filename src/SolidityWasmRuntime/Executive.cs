@@ -15,7 +15,7 @@ public class Executive
         var solidityCode = File.ReadAllText(solFilePath);
         var output = new Compiler().BuildWasm(solidityCode);
         var wasmCode = output.Contracts.First().WasmCode.ToByteArray();
-        _runtime = new Runtime(wasmCode);
+        _runtime = new Runtime(new Context(), wasmCode);
     }
 
     public string Execute(string selector, params int[] values)
@@ -47,11 +47,6 @@ public class Executive
         _runtime.PrintConsumedFuel();
         var hexReturn = Convert.ToHexString(_runtime.ReturnBuffer);
         Console.WriteLine();
-        foreach (var pair in _runtime.Database)
-        {
-            Console.WriteLine($"key: {pair.Key}, value: {pair.Value}");
-        }
-
         return hexReturn;
     }
 }
